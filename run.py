@@ -112,11 +112,15 @@ if __name__ == '__main__':
     last_msg = {}
     upsampler, face_enhancer = get_model("RealESRGAN_x4plus.pth")
     while True:
-        with open(message_json, "r", encoding="utf-8") as f:
-            message = json.load(f)
+        try:
+            with open(message_json, "r", encoding="utf-8") as f:
+                message = json.load(f)
+        except Exception as e:
+            print(e)
+            sleep(1)
+            continue
         if message == last_msg:
             print("wait...")
-            sleep(1)
             continue
         # load parameters
         model_name = message["model"]
@@ -141,4 +145,4 @@ if __name__ == '__main__':
         run_RealEsrgan()
 
         last_msg = message
-
+        sleep(1)
