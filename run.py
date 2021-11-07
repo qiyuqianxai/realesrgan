@@ -120,7 +120,7 @@ if __name__ == '__main__':
             sleep(1)
             continue
         if message == last_msg:
-            print("wait...")
+            print("RealESRGAN wait...")
             continue
         # load parameters
         model_name = message["model"]
@@ -136,6 +136,8 @@ if __name__ == '__main__':
         face_enhance_str = "1" if face_enhance else "0"
         res_path = os.path.join(args.output, f'{imgname}_{model_name}_{face_enhance_str}.png')
         if os.path.exists(res_path):
+            print("RealESRGAN exists...")
+            sleep(1)
             continue
         # model update?
         if last_msg!={} and (last_msg["model"] != model_name):
