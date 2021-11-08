@@ -73,7 +73,7 @@ def run_RealEsrgan():
             print('If you encounter CUDA out of memory, try to set --tile with a smaller number.')
         else:
             face_enhance_str = "1" if face_enhance else "0"
-            save_path = os.path.join(args.output, f'{imgname}_{model_name}_{face_enhance_str}.png')
+            save_path = os.path.join(args.output, f'{model_name}_{face_enhance_str}_{input_img}')
             cv2.imwrite(save_path, output)
             print("complete！")
 
@@ -120,6 +120,7 @@ if __name__ == '__main__':
             sleep(1)
             continue
         if message == last_msg:
+            sleep(1)
             print("RealESRGAN wait...")
             continue
         # load parameters
@@ -132,9 +133,10 @@ if __name__ == '__main__':
         os.makedirs(args.output, exist_ok=True)
         args.face_enhance = face_enhance
 
-        imgname, extension = os.path.splitext(os.path.basename(args.input))
+        # imgname, extension = os.path.splitext(os.path.basename(args.input))
         face_enhance_str = "1" if face_enhance else "0"
-        res_path = os.path.join(args.output, f'{imgname}_{model_name}_{face_enhance_str}.png')
+        res_path = os.path.join(args.output, f'{model_name}_{face_enhance_str}_{input_img}')
+        print(res_path)
         if os.path.exists(res_path):
             print("RealESRGAN exists...")
             sleep(1)
