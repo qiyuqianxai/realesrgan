@@ -4,6 +4,7 @@ import glob
 import os
 from basicsr.archs.rrdbnet_arch import RRDBNet
 import json
+import shutil
 from gfpgan import GFPGANer
 from realesrgan import RealESRGANer
 from time import sleep
@@ -11,6 +12,9 @@ from time import sleep
 message_json = "/workspace/go_proj/src/Ai_WebServer/algorithm_utils/realesrgan/message.json"
 user_img_dir = "/workspace/go_proj/src/Ai_WebServer/static/algorithm/realesrgan/user_imgs"
 res_img_dir = "/workspace/go_proj/src/Ai_WebServer/static/algorithm/realesrgan/result_imgs"
+
+user_video_dir = "/workspace/go_proj/src/Ai_WebServer/static/algorithm/realesrgan/user_videos"
+res_video_dir = "/workspace/go_proj/src/Ai_WebServer/static/algorithm/realesrgan/res_videos"
 # message_json = "./message.json"
 # user_img_dir = "./user_imgs"
 # res_img_dir = "./res_imgs"
@@ -77,6 +81,40 @@ def run_RealEsrgan():
             cv2.imwrite(save_path, output)
             print("complete！")
 
+def run_RealEsrgan_video(res_path):
+    cap = cv2.VideoCapture(args.input)
+    if os.path.exists("video_temp"):
+        shutil.rmtree("video_temp")
+    os.makedirs("video_temp")
+    if cap.isOpened():
+        img_num = 0
+        while cap.grab():
+            _, img = cap.retrieve()
+            h, w = img.shape[0:2]
+            if max(h, w) > 1000 and args.netscale == 4:
+                import warnings
+                warnings.warn('The input image is large, try X2 model for better performance.')
+            if max(h, w) < 500 and args.netscale == 2:
+                import warnings
+                warnings.warn('The input image is small, try X4 model for better performance.')
+
+            try:
+                if args.face_enhance:
+                    _, _, output = face_enhancer.enhance(img, has_aligned=False, only_center_face=False, paste_back=True)
+                else:
+                    output, _ = upsampler.enhance(img, outscale=args.outscale)
+            except Exception as error:
+                print('Error', error)
+                print('If you encounter CUDA out of memory, try to set --tile with a smaller number.')
+            else:
+                save_path = os.path.join("video_temp","%04d.jpg"%img_num)
+                cv2.imwrite(save_path, output)
+                print(img_num)
+                img_num += 1
+        os.system("ffmpeg -f image2 -i video_temp/%4d.jpg  -vcodec libx264 "+res_path+" -y")
+        print("complete!")
+
+
 def get_model(model_name):
     args.model_path = os.path.join("experiments/pretrained_models", model_name)
     if 'RealESRGAN_x4plus_anime_6B.pth' in args.model_path:
@@ -108,6 +146,46 @@ def get_model(model_name):
 
     return upsampler,face_enhancer
 
+def handle_img():
+    global upsampler, face_enhancer
+    args.output = res_img_dir
+    os.makedirs(args.output, exist_ok=True)
+    args.face_enhance = face_enhance
+
+    face_enhance_str = "1" if face_enhance else "0"
+    res_path = os.path.join(args.output, f'{model_name}_{face_enhance_str}_{input_img}')
+    print(res_path)
+    if os.path.exists(res_path):
+        print("RealESRGAN exists...")
+        sleep(1)
+        return
+    # model update?
+    if last_msg != {} and (last_msg["model"] != model_name):
+        del upsampler, face_enhancer
+        upsampler, face_enhancer = get_model(model_name)
+    # inference
+    run_RealEsrgan()
+
+def handle_video():
+    global upsampler, face_enhancer
+    args.output = res_video_dir
+    os.makedirs(args.output, exist_ok=True)
+    args.face_enhance = face_enhance
+
+    face_enhance_str = "1" if face_enhance else "0"
+    res_path = os.path.join(args.output, f'{model_name}_{face_enhance_str}_{input_img}')
+    print("video",res_path)
+    if os.path.exists(res_path):
+        print("RealESRGAN exists...")
+        sleep(1)
+        return
+    # model update?
+    if last_msg != {} and (last_msg["model"] != model_name):
+        del upsampler, face_enhancer
+        upsampler, face_enhancer = get_model(model_name)
+    # inference
+    run_RealEsrgan_video(res_path)
+
 if __name__ == '__main__':
     last_msg = {}
     upsampler, face_enhancer = get_model("RealESRGAN_x4plus.pth")
@@ -127,26 +205,15 @@ if __name__ == '__main__':
         model_name = message["model"]
         face_enhance = message["face_enhance"]
         input_img = message["user_img"]
+        imgname, extension = os.path.splitext(input_img)
 
-        args.input = os.path.join(user_img_dir,input_img)
-        args.output = res_img_dir
-        os.makedirs(args.output, exist_ok=True)
-        args.face_enhance = face_enhance
-
-        # imgname, extension = os.path.splitext(os.path.basename(args.input))
-        face_enhance_str = "1" if face_enhance else "0"
-        res_path = os.path.join(args.output, f'{model_name}_{face_enhance_str}_{input_img}')
-        print(res_path)
-        if os.path.exists(res_path):
-            print("RealESRGAN exists...")
-            sleep(1)
-            continue
-        # model update?
-        if last_msg!={} and (last_msg["model"] != model_name):
-            del upsampler,face_enhancer
-            upsampler, face_enhancer = get_model(model_name)
-        # inference
-        run_RealEsrgan()
+        if extension in [".mp4"]:
+            # deal video
+            args.input = os.path.join(user_video_dir, input_img)
+            handle_video()
+        else:
+            args.input = os.path.join(user_img_dir, input_img)
+            handle_img()
 
         last_msg = message
         sleep(1)
