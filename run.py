@@ -8,6 +8,7 @@ import shutil
 from gfpgan import GFPGANer
 from realesrgan import RealESRGANer
 from time import sleep
+
 # custom 1:
 message_json = "/workspace/go_proj/src/Ai_WebServer/algorithm_utils/realesrgan/message.json"
 user_img_dir = "/workspace/go_proj/src/Ai_WebServer/static/algorithm/realesrgan/user_imgs"
@@ -83,6 +84,7 @@ def run_RealEsrgan():
 
 def run_RealEsrgan_video(res_path):
     cap = cv2.VideoCapture(args.input)
+    fps = cap.get(cv2.CAP_PROP_FPS)
     if os.path.exists("video_temp"):
         shutil.rmtree("video_temp")
     os.makedirs("video_temp")
@@ -111,7 +113,7 @@ def run_RealEsrgan_video(res_path):
                 cv2.imwrite(save_path, output)
                 print(img_num)
                 img_num += 1
-        os.system("ffmpeg -f image2 -i video_temp/%4d.jpg  -vcodec libx264 "+res_path+" -y")
+        os.system(f"ffmpeg -framerate {fps} -f image2 -i video_temp/%4d.jpg  -vcodec libx264 -vf fps={fps} {res_path} -y")
         print("complete!")
 
 
